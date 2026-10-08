@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>إنجاز | لوحة متابعة مهام المؤسسة</title>
+<meta name="description" content="لوحة تحكم لمتابعة مهام اليوم وأعمال الفريق وإنجازات المؤسسة.">
+<meta name="theme-color" content="#4338ca">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script>
+tailwind.config = { theme: { extend: {
+  colors: {
+    brand: { 50:'#eef2ff', 100:'#e0e7ff', 200:'#c7d2fe', 400:'#818cf8', 500:'#6366f1', 600:'#4f46e5', 700:'#4338ca', 900:'#312e81' },
+    ink: { 900:'#0f172a', 800:'#1e293b', 700:'#334155', 500:'#64748b', 400:'#94a3b8', 300:'#cbd5e1', 200:'#e2e8f0', 100:'#f1f5f9', 50:'#f8fafc' }
+  },
+  fontFamily: { sans: ['"IBM Plex Sans Arabic"', 'sans-serif'] }
+} } }
+</script>
+<style>
+  body { -webkit-tap-highlight-color: transparent; }
+  .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { scrollbar-width: none; }
+  .fade-in { animation: fade .25s ease both; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .pop { animation: pop .5s ease; } @keyframes pop { 40% { transform: scale(1.15); } }
+  .drawer { transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+  .drop-on { outline: 2px dashed #6366f1; outline-offset: -6px; background: #eef2ff; }
+  :focus-visible { outline: 3px solid #6366f1; outline-offset: 2px; }
+  .pb-safe { padding-bottom: max(.75rem, env(safe-area-inset-bottom)); }
+  input[type="checkbox"].task-check { appearance: none; width: 22px; height: 22px; border: 2px solid #cbd5e1; border-radius: 7px; display: grid; place-content: center; cursor: pointer; flex-shrink: 0; transition: .15s; }
+  input[type="checkbox"].task-check:checked { background: #10b981; border-color: #10b981; }
+  input[type="checkbox"].task-check:checked::after { content: ''; width: 6px; height: 11px; border: solid #fff; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg) translate(-1px,-1px); }
+  .tour-target { z-index: 55 !important; box-shadow: 0 0 0 4px #fff, 0 0 0 8px #6366f1 !important; border-radius: 16px; }
+</style>
+</head>
+<body class="bg-ink-50 text-ink-900 font-sans antialiased">
+
+<div class="lg:flex min-h-screen">
+  <!-- ============ SIDEBAR (desktop) ============ -->
+  <aside class="hidden lg:flex lg:flex-col w-64 shrink-0 bg-white border-l border-ink-200 h-screen sticky top-0 p-4">
+    <div class="flex items-center gap-2.5 px-2 mb-8">
+      <span class="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center shadow-lg shadow-brand-600/25"><i class="fa-solid fa-chart-simple"></i></span>
+      <div class="leading-tight"><div class="font-bold">إنجاز</div><div class="text-[11px] text-ink-500">مؤسسة الأفق</div></div>
+    </div>
+    <nav id="sideNav" class="space-y-1 text-sm font-medium"></nav>
+    <div class="mt-auto space-y-3">
+      
+      <div class="flex gap-2 text-xs">
+        <button data-action="export" class="flex-1 py-2 rounded-lg border border-ink-200 hover:border-brand-500 text-ink-700"><i class="fa-solid fa-file-arrow-down ml-1"></i>تصدير</button>
+        <button data-action="reset" class="py-2 px-3 rounded-lg border border-ink-200 hover:border-brand-500 text-ink-500" title="إعادة البيانات التجريبية"><i class="fa-solid fa-rotate"></i></button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <div class="flex-1 min-w-0">
+    <!-- Top bar -->
+    <header class="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-ink-200">
+      <div class="max-w-6xl mx-auto px-4 h-16 flex items-center gap-3">
+        <span class="lg:hidden w-9 h-9 rounded-xl bg-brand-600 text-white flex items-center justify-center"><i class="fa-solid fa-chart-simple text-sm"></i></span>
+        <div class="flex-1 min-w-0">
+          <h1 id="pageTitle" class="font-bold truncate"></h1>
+          <div id="pageSub" class="text-[11px] text-ink-500 truncate"></div>
+        </div>
+        <div class="relative">
+          <button data-action="notifs" id="bellBtn" class="relative w-10 h-10 rounded-xl border border-ink-200 hover:border-brand-500 text-ink-700" aria-label="الإشعارات" title="الإشعارات"><i class="fa-regular fa-bell"></i>
+            <span id="bellCount" class="hidden absolute -top-1.5 -left-1.5 min-w-[20px] h-5 px-1 rounded-full bg-red-600 text-white text-[11px] font-bold flex items-center justify-center ring-2 ring-white">0</span></button>
+          <div id="notifPanel" class="hidden absolute left-0 mt-2 w-[320px] max-w-[calc(100vw-2rem)] bg-white border border-ink-200 rounded-2xl shadow-2xl z-40 overflow-hidden"></div>
+        </div>
+        <button data-action="tour" class="w-10 h-10 rounded-xl border border-ink-200 hover:border-brand-500 text-ink-700 shrink-0" aria-label="جولة تعريفية" title="جولة تعريفية"><i class="fa-regular fa-circle-question"></i></button>
+        <button data-action="new" data-tour="new" class="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold shadow-lg shadow-brand-600/25"><i class="fa-solid fa-plus"></i>مهمة جديدة</button>
+      </div>
+    </header>
+
+    <main id="view" class="max-w-6xl mx-auto px-4 py-5 pb-28 lg:pb-10"></main>
+  </div>
+</div>
+
+<!-- ============ BOTTOM NAV (mobile) ============ -->
+<nav id="bottomNav" class="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-ink-200 grid grid-cols-4 pb-safe pt-1.5"></nav>
+<button data-action="new" data-tour="new-m" class="sm:hidden fixed z-30 bottom-20 left-4 w-14 h-14 rounded-2xl bg-brand-600 text-white shadow-xl shadow-brand-600/40 text-xl" aria-label="مهمة جديدة"><i class="fa-solid fa-plus"></i></button>
+
+<!-- ============ OVERLAY + DRAWER + MODAL ============ -->
+<div id="overlay" class="fixed inset-0 z-40 bg-ink-900/40 backdrop-blur-[2px] opacity-0 pointer-events-none transition-opacity duration-300"></div>
+<aside id="drawer" class="drawer fixed z-50 inset-x-0 bottom-0 sm:inset-y-0 sm:left-0 sm:right-auto sm:w-[460px] translate-y-full sm:translate-y-0 sm:-translate-x-full bg-white sm:rounded-none rounded-t-3xl max-h-[92vh] sm:max-h-none flex flex-col shadow-2xl" aria-modal="true" role="dialog">
+  <div class="flex items-center justify-between px-5 h-14 border-b border-ink-200 shrink-0">
+    <h3 id="drawerTitle" class="font-bold"></h3>
+    <button data-action="close" class="w-9 h-9 rounded-full hover:bg-ink-100" aria-label="إغلاق"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div id="drawerBody" class="flex-1 overflow-y-auto p-5"></div>
+  <div id="drawerFoot" class="border-t border-ink-200 p-4 pb-safe shrink-0"></div>
+</aside>
+
+<div id="confirmBox" class="fixed inset-0 z-[60] hidden items-center justify-center p-4">
+  <div class="absolute inset-0 bg-ink-900/40" data-action="cancel-confirm"></div>
+  <div class="relative bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl fade-in">
+    <h4 id="confirmTitle" class="font-bold mb-2"></h4><p id="confirmText" class="text-sm text-ink-500 mb-5"></p>
+    <div class="flex gap-2"><button id="confirmYes" class="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm">حذف</button>
+      <button data-action="cancel-confirm" class="flex-1 py-2.5 rounded-xl bg-ink-100 font-bold text-sm">إلغاء</button></div>
+  </div>
+</div>
+
+<!-- ============ DEMO LOGIN ============ -->
+<div id="login" class="fixed inset-0 z-[65] bg-ink-50 overflow-y-auto hidden">
+  <div class="min-h-full flex items-center justify-center p-4">
+    <div class="w-full max-w-2xl fade-in">
+      <div class="text-center mb-7">
+        <span class="w-14 h-14 rounded-2xl bg-brand-600 text-white inline-flex items-center justify-center shadow-xl shadow-brand-600/30 mb-4"><i class="fa-solid fa-chart-simple text-xl"></i></span>
+        <h1 class="text-2xl font-bold mb-1">مرحباً بك في إنجاز</h1>
+        <p class="text-sm text-ink-500">نسخة تجريبية — اختر حساباً لترى ما يظهر لكل مستخدم</p>
+      </div>
+      <button data-login="mgr" class="w-full text-right bg-white border-2 border-brand-200 hover:border-brand-500 rounded-2xl p-5 mb-4 flex items-center gap-4 transition shadow-sm hover:shadow-lg">
+        <span class="w-14 h-14 rounded-2xl bg-brand-600 text-white flex items-center justify-center shrink-0"><i class="fa-solid fa-user-tie text-xl"></i></span>
+        <div class="flex-1"><div class="font-bold text-lg">الدخول كمدير</div>
+          <div class="text-sm text-ink-500">يرى مهام كل الموظفين، يوزع المهام، ويتابع من أنجز ومن تأخر</div></div>
+        <i class="fa-solid fa-arrow-left text-brand-600"></i>
+      </button>
+      <div class="flex items-center gap-3 my-5"><span class="flex-1 h-px bg-ink-200"></span><span class="text-xs text-ink-500">أو الدخول كموظف — يرى مهامه فقط</span><span class="flex-1 h-px bg-ink-200"></span></div>
+      <div id="loginTeam" class="grid sm:grid-cols-2 gap-3"></div>
+    </div>
+  </div>
+</div>
+
+<div id="tourBg" class="fixed inset-0 z-50 bg-ink-900/50 hidden"></div>
+<div id="tourCard" class="fixed z-[60] inset-x-3 bottom-4 sm:inset-x-auto sm:left-6 sm:bottom-6 sm:w-96 bg-white rounded-2xl shadow-2xl p-5 hidden" role="dialog" aria-live="polite"></div>
+
+<div id="toast" class="fixed z-[70] top-4 left-1/2 -translate-x-1/2 bg-ink-900 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-2xl opacity-0 pointer-events-none transition-opacity duration-300 flex items-center gap-2 whitespace-nowrap"></div>
+
+<script>
+/* =====================================================================
+   إنجاز — Task & achievement dashboard (demo: data saved in this browser)
+   Design references:
+   - Shneiderman (1996): Overview first, zoom & filter, details on demand.
+   - Amabile & Kramer, "The Progress Principle" (2011): visible progress on
+     meaningful work is the strongest daily motivator → wins feed, progress.
+   - Few / Tufte: direct labels, minimal non-data ink in charts.
+   - WCAG 2.1 SC 1.4.1: status never conveyed by colour alone (icon + text).
+   - Nielsen: progressive disclosure — the primary task first, secondary info below.
+   - Hick–Hyman law: fewer simultaneous choices → faster decisions (3 KPIs, not 4).
+   - Short, skippable, contextual onboarding tour (shown once).
+   ===================================================================== */
+
+/* ---------------- DATA ---------------- */
+const TEAM = [
+  { id:'u1', photo:'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&crop=faces&w=160&h=160&q=80', name:'سعيد المنصوري', role:'مدير العمليات', initials:'سم', color:'bg-rose-100 text-rose-700' },
+  { id:'u2', photo:'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&crop=faces&w=160&h=160&q=80', name:'يوسف بنعيسى',  role:'محاسب',          initials:'يب', color:'bg-sky-100 text-sky-700' },
+  { id:'u3', photo:'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&crop=faces&w=160&h=160&q=80', name:'نبيل العمراني', role:'مسؤول التسويق',  initials:'نع', color:'bg-amber-100 text-amber-800' },
+  { id:'u4', photo:'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&crop=faces&w=160&h=160&q=80', name:'كريم الطاهري', role:'مطور برمجيات',     initials:'كط', color:'bg-emerald-100 text-emerald-700' },
+  { id:'u5', photo:'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&crop=faces&w=160&h=160&q=80', name:'هشام السلاوي', role:'مسؤول الموارد البشرية',  initials:'هس', color:'bg-violet-100 text-violet-700' },
+];
+const MANAGER = { id:'mgr', name:'المدير العام', initials:'م', color:'bg-brand-100 text-brand-700' };
+const STATUS = {
+  todo:  { label:'جديدة',        icon:'fa-regular fa-circle',        cls:'bg-ink-100 text-ink-700',         dot:'bg-ink-400' },
+  doing: { label:'قيد التنفيذ',  icon:'fa-solid fa-circle-half-stroke', cls:'bg-sky-50 text-sky-700',        dot:'bg-sky-500' },
+  done:  { label:'منجزة',        icon:'fa-solid fa-circle-check',    cls:'bg-emerald-50 text-emerald-700',  dot:'bg-emerald-500' },
+};
+const PRIORITY = {
+  high: { label:'عالية',  icon:'fa-solid fa-angles-up',   cls:'text-red-700 bg-red-50',     rank:0 },
+  med:  { label:'متوسطة', icon:'fa-solid fa-angle-up',    cls:'text-amber-800 bg-amber-50', rank:1 },
+  low:  { label:'منخفضة', icon:'fa-solid fa-angle-down',  cls:'text-ink-700 bg-ink-100',    rank:2 },
+};
+const TAGS = ['عمليات', 'مالية', 'تسويق', 'تقنية', 'موارد بشرية'];
+
+/* ---------------- HELPERS ---------------- */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+const pad = n => String(n).padStart(2, '0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parseYmd = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const TODAY = () => ymd(new Date());
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const num = n => Number(n).toLocaleString('ar-MA');
+const person = id => TEAM.find(t => t.id === id) || MANAGER;
+const fmtDay = s => parseYmd(s).toLocaleDateString('ar-MA', { weekday:'long', day:'numeric', month:'long' });
+const fmtShort = s => parseYmd(s).toLocaleDateString('ar-MA', { day:'numeric', month:'short' });
+function relDue(s) {
+  const diff = Math.round((parseYmd(s) - parseYmd(TODAY())) / 864e5);
+  if (diff === 0) return 'اليوم'; if (diff === 1) return 'غداً'; if (diff === -1) return 'أمس';
+  if (diff < 0) return `منذ ${num(-diff)} أيام`; if (diff < 7) return `بعد ${num(diff)} أيام`;
+  return fmtShort(s);
+}
+const isOverdue = t => t.status !== 'done' && t.due < TODAY();
+function toast(msg, icon = 'fa-circle-check', color = 'text-emerald-400') {
+  const t = $('#toast'); t.innerHTML = `<i class="fa-solid ${icon} ${color}"></i><span>${msg}</span>`;
+  t.style.opacity = 1; clearTimeout(t._h); t._h = setTimeout(() => t.style.opacity = 0, 2400);
+}
+function avatar(id, size = 'w-8 h-8 text-[11px]') {
+  const p = person(id);
+  const initials = `<span class="${size} ${p.color} rounded-full flex items-center justify-center font-bold shrink-0" title="${esc(p.name)}">${p.initials}</span>`;
+  if (!p.photo) return initials;
+  // profile photo with a status-ring look; falls back to initials if the image can't load
+  return `<span class="relative ${size} shrink-0" title="${esc(p.name)}">
+    <img src="${p.photo}" alt="${esc(p.name)}" loading="lazy" class="w-full h-full rounded-full object-cover ring-2 ring-white shadow-sm bg-ink-100"
+      onerror="this.parentNode.outerHTML='${initials.replace(/"/g, '&quot;').replace(/'/g, "\\'")}'"></span>`;
+}
+
+/* ---------------- SEED ---------------- */
+function seed() {
+  const T = [
+    ['إعداد تقرير المبيعات الشهري', 'u2', 'high', 'مالية', 0, 'doing', ['جمع بيانات الفروع', 'مراجعة الأرقام', 'إرسال للمدير']],
+    ['مراجعة عقود الموردين', 'u1', 'high', 'عمليات', -1, 'todo', []],
+    ['نشر حملة العروض على إنستغرام', 'u3', 'med', 'تسويق', 0, 'todo', ['تصميم 3 منشورات', 'كتابة النصوص', 'الجدولة']],
+    ['إصلاح خطأ في صفحة الطلبات', 'u4', 'high', 'تقنية', 0, 'doing', []],
+    ['مقابلات توظيف مساعد إداري', 'u5', 'med', 'موارد بشرية', 1, 'todo', ['فرز السير الذاتية', 'تحديد المواعيد']],
+    ['تحديث جرد المخزون', 'u1', 'med', 'عمليات', -2, 'doing', []],
+    ['دفع فواتير الكهرباء والإنترنت', 'u2', 'low', 'مالية', 2, 'todo', []],
+    ['اجتماع تقييم أداء الربع', 'u5', 'high', 'موارد بشرية', 3, 'todo', []],
+    ['تحسين سرعة الموقع', 'u4', 'low', 'تقنية', 5, 'todo', []],
+    ['تجهيز عرض تقديمي للعميل الجديد', 'u3', 'high', 'تسويق', 1, 'doing', ['جمع دراسات الحالة', 'تصميم الشرائح']],
+    ['تسجيل الموظفين الجدد في التأمين', 'u5', 'med', 'موارد بشرية', 0, 'todo', []],
+    ['مطابقة كشف الحساب البنكي', 'u2', 'med', 'مالية', -1, 'todo', []],
+  ];
+  const now = new Date(), tasks = [];
+  T.forEach(([title, a, p, tag, d, st, cl], i) => tasks.push({
+    id: 't' + (i + 1), title, desc: '', assignee: a, priority: p, tag, due: ymd(addDays(now, d)), status: st,
+    checklist: cl.map((x, k) => ({ t: x, done: st === 'doing' && k === 0 })), created: Date.now() - (i + 3) * 864e5, doneAt: null,
+    createdBy: 'mgr', seen: [0, 2, 4, 9].includes(i) ? ['mgr'] : ['mgr', a], comments: [] }));
+  // sample conversation on tasks (manager ↔ employee)
+  const hr = h => Date.now() - h * 36e5;
+  tasks[0].comments = [
+    { by:'mgr', text:'أحتاج التقرير قبل اجتماع الغد، ركّز على مقارنة الفروع.', at: hr(20), readBy:['mgr','u2'] },
+    { by:'u2',  text:'تمام، جمعت بيانات الفروع وأراجع الأرقام الآن.', at: hr(3), readBy:['u2'] } ];
+  tasks[3].comments = [ { by:'u4', text:'وجدت سبب الخطأ، الإصلاح جاهز للاختبار.', at: hr(1), readBy:['u4'] } ];
+  tasks[1].comments = [ { by:'mgr', text:'هذه المهمة متأخرة، هل تحتاج مساعدة؟', at: hr(5), readBy:['mgr'] } ];
+  // completed history over the last 7 days (progress principle → visible wins)
+  const doneT = ['إغلاق حسابات الأسبوع الماضي','تحديث سياسة الإجازات','إطلاق النشرة البريدية','نقل الخادم إلى استضافة جديدة','طلب مستلزمات المكتب',
+    'تدريب الموظفين على النظام الجديد','إرسال عروض الأسعار للعملاء','تصميم شعار الحملة','مراجعة رواتب الشهر','إصلاح طابعة القسم المالي',
+    'كتابة دليل استقبال الموظف','تنظيم أرشيف العقود','تحليل نتائج الإعلانات','تحديث بيانات العملاء','اجتماع الفريق الأسبوعي','إعداد ميزانية التسويق'];
+  const perDay = [3, 2, 4, 1, 3, 2, 1];
+  let k = 0;
+  perDay.forEach((n, back) => { for (let j = 0; j < n && k < doneT.length; j++, k++) {
+    const day = addDays(now, -6 + back), when = new Date(day); when.setHours(9 + j * 2, 15 * j, 0, 0);
+    if (back === 6 && when > now) when.setTime(now - (j + 1) * 36e5);
+    tasks.push({ id: 'd' + k, title: doneT[k], desc: '', assignee: TEAM[k % 5].id, priority: ['high','med','low'][k % 3], tag: TAGS[k % 5],
+      due: ymd(day), status: 'done', checklist: [], created: when - 3 * 864e5, doneAt: when.getTime(),
+      createdBy: 'mgr', seen: back === 6 ? [TEAM[k % 5].id] : ['mgr', TEAM[k % 5].id], comments: [] });
+  } });
+  return tasks;
+}
+let tasks = store.get('injaz_tasks2', null);
+if (!tasks) { tasks = seed(); store.set('injaz_tasks2', tasks); }
+const save = () => store.set('injaz_tasks2', tasks);
+
+/* ---------------- STATE ---------------- */
+let state = Object.assign({ view:'home', viewAs:'mgr', mode:'list', q:'', fAssignee:'all', fStatus:'open', fPriority:'all', fDue:'all' }, store.get('injaz_ui', {}));
+const saveUi = () => store.set('injaz_ui', { view: state.view, viewAs: state.viewAs, mode: state.mode });
+const scoped = () => state.viewAs === 'mgr' ? tasks : tasks.filter(t => t.assignee === state.viewAs);
+const me = () => state.viewAs, isMgr = () => state.viewAs === 'mgr';
+/* Permissions (least privilege): manager assigns & manages everything; employee works on own tasks */
+const can = {
+  edit: t => isMgr() || t.createdBy === me(),
+  del:  t => isMgr() || t.createdBy === me(),
+  assign: () => isMgr(),
+};
+/* Notifications: what changed for *this* user since they last looked */
+function notifications() {
+  const out = [], u = me();
+  tasks.forEach(t => {
+    const mine = isMgr() || t.assignee === u;
+    if (!mine) return;
+    const seen = t.seen || [u];
+    if (!isMgr() && t.createdBy !== u && !seen.includes(u))
+      out.push({ t, at: t.created, icon:'fa-solid fa-inbox', cls:'bg-brand-50 text-brand-700', text:`مهمة جديدة من ${person(t.createdBy).name}`, });
+    if (isMgr() && t.status === 'done' && t.doneAt && !seen.includes('mgr'))
+      out.push({ t, at: t.doneAt, icon:'fa-solid fa-circle-check', cls:'bg-emerald-50 text-emerald-700', text:`${person(t.assignee).name} أنجز مهمة` });
+    (t.comments || []).forEach(c => { if (c.by !== u && !(c.readBy || []).includes(u))
+      out.push({ t, at: c.at, icon:'fa-regular fa-comment', cls:'bg-amber-50 text-amber-800', text:`تعليق من ${person(c.by).name}` }); });
+  });
+  return out.sort((a, b) => b.at - a.at);
+}
+function markSeen(t) {
+  const u = me(); t.seen = t.seen || []; if (!t.seen.includes(u)) t.seen.push(u);
+  (t.comments || []).forEach(c => { c.readBy = c.readBy || []; if (!c.readBy.includes(u)) c.readBy.push(u); });
+  save();
+}
+const isNewForMe = t => !isMgr() && t.createdBy !== me() && !(t.seen || [me()]).includes(me());
+const unreadComments = t => (t.comments || []).filter(c => c.by !== me() && !(c.readBy || []).includes(me())).length;
+
+const VIEWS = {
+  home:  { label:'لوحة اليوم', icon:'fa-solid fa-house' },
+  tasks: { label:'المهام',     icon:'fa-solid fa-list-check' },
+  team:  { label:'الفريق',     icon:'fa-solid fa-users' },
+  wins:  { label:'الإنجازات',  icon:'fa-solid fa-trophy' },
+};
+
+/* ---------------- NAV ---------------- */
+function renderNav() {
+  const overdue = scoped().filter(isOverdue).length;
+  const views = Object.entries(VIEWS).filter(([k]) => k !== 'team' || isMgr());
+  $('#bottomNav').className = $('#bottomNav').className.replace(/grid-cols-\d/, 'grid-cols-' + views.length);
+  const nN = notifications().length;
+  $('#bellCount').textContent = num(nN); $('#bellCount').classList.toggle('hidden', !nN);
+  $('#sideNav').innerHTML = views.map(([k, v]) => `
+    <button data-view="${k}" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition ${state.view === k ? 'bg-brand-50 text-brand-700 font-bold' : 'text-ink-700 hover:bg-ink-100'}">
+      <i class="${v.icon} w-5 text-center"></i><span class="flex-1 text-right">${v.label}</span>
+      ${k === 'tasks' && overdue ? `<span class="text-[11px] font-bold bg-red-50 text-red-700 px-2 py-0.5 rounded-md" title="مهام متأخرة"><i class="fa-solid fa-triangle-exclamation ml-1"></i>${num(overdue)}</span>` : ''}
+    </button>`).join('');
+  $('#bottomNav').innerHTML = views.map(([k, v]) => `
+    <button data-view="${k}" class="relative flex flex-col items-center gap-1 py-1.5 text-[11px] ${state.view === k ? 'text-brand-700 font-bold' : 'text-ink-500'}">
+      <i class="${v.icon} text-lg"></i>${v.label}
+      ${k === 'tasks' && overdue ? `<span class="absolute top-0.5 left-1/2 -translate-x-[-10px] min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center">${num(overdue)}</span>` : ''}
+    </button>`).join('');
+}
+
+/* Account bar — who you are and what you can do (makes the demo self-explanatory) */
+function roleBanner() {
+  const mgr = isMgr(), p = person(me());
+  const perms = mgr ? ['ترى مهام كل الموظفين', 'تضيف مهمة لأي موظف', 'تتابع من أنجز ومن تأخر']
+                    : ['ترى مهامك فقط', 'تحدّث حالة مهامك وتعلّق عليها', 'تصلك المهام التي يضيفها المدير'];
+  return `<section data-tour="role" class="mb-5 rounded-2xl border border-brand-100 bg-gradient-to-l from-brand-50 to-white p-4">
+    <div class="flex items-center gap-3">
+      ${mgr ? `<span class="w-11 h-11 rounded-full bg-brand-600 text-white flex items-center justify-center shrink-0"><i class="fa-solid fa-user-tie"></i></span>` : avatar(p.id, 'w-11 h-11 text-xs')}
+      <div class="flex-1 min-w-0"><div class="text-[11px] text-ink-500">أنت مسجّل الآن كـ</div>
+        <div class="font-bold truncate">${mgr ? 'المدير' : esc(p.name)} <span class="text-xs font-normal text-ink-500">— ${mgr ? 'صلاحيات كاملة' : esc(p.role)}</span></div></div>
+      <button data-action="switch" class="shrink-0 px-3.5 py-2.5 rounded-xl bg-white border border-brand-200 hover:border-brand-500 text-brand-700 text-xs font-bold"><i class="fa-solid fa-right-left ml-1.5"></i>تبديل الحساب</button>
+    </div>
+    <ul class="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[12px] text-ink-700">${perms.map(x => `<li><i class="fa-solid fa-check text-emerald-600 ml-1 text-[10px]"></i>${x}</li>`).join('')}</ul>
+  </section>`;
+}
+function bindRole() {}
+function showLogin() {
+  $('#loginTeam').innerHTML = TEAM.map(t => {
+    const open = tasks.filter(x => x.assignee === t.id && x.status !== 'done').length;
+    return `<button data-login="${t.id}" class="text-right bg-white border border-ink-200 hover:border-brand-500 rounded-2xl p-4 flex items-center gap-3 transition hover:shadow-md">
+      ${avatar(t.id, 'w-12 h-12 text-xs')}
+      <div class="flex-1 min-w-0"><div class="font-bold truncate">${t.name}</div><div class="text-xs text-ink-500 truncate">${t.role} • ${num(open)} مهام مفتوحة</div></div>
+      <i class="fa-solid fa-arrow-left text-ink-400"></i></button>`; }).join('');
+  $('#login').classList.remove('hidden'); document.body.style.overflow = 'hidden';
+}
+function login(id) {
+  state.viewAs = id; state.fAssignee = 'all'; if (id !== 'mgr' && state.view === 'team') state.view = 'home';
+  saveUi(); store.set('injaz_logged', true);
+  $('#login').classList.add('hidden'); document.body.style.overflow = '';
+  render(); window.scrollTo(0, 0);
+  const n = notifications().length;
+  toast(id === 'mgr' ? 'دخلت كمدير: ترى كل مهام المؤسسة' : `دخلت كـ ${person(id).name}${n ? ` — لديك ${num(n)} إشعارات` : ''}`, 'fa-user', 'text-brand-200');
+  if (!store.get('injaz_tour', false)) setTimeout(startTour, 600);
+}
+function renderNotifs() {
+  const list = notifications();
+  $('#notifPanel').innerHTML = `<div class="flex items-center justify-between px-4 py-3 border-b border-ink-100"><span class="font-bold text-sm">الإشعارات</span>
+      ${list.length ? '<button data-action="readall" class="text-xs font-bold text-brand-700">تعليم الكل كمقروء</button>' : ''}</div>
+    <div class="max-h-80 overflow-y-auto">${list.length ? list.slice(0, 12).map(n => `
+      <button data-open="${n.t.id}" class="w-full text-right flex items-start gap-3 px-4 py-3 hover:bg-ink-50 border-b border-ink-100 last:border-0">
+        <span class="w-9 h-9 rounded-xl ${n.cls} flex items-center justify-center shrink-0"><i class="${n.icon} text-sm"></i></span>
+        <span class="flex-1 min-w-0"><span class="block text-xs text-ink-500">${n.text} • ${timeAgo(n.at)}</span><span class="block text-sm font-semibold truncate">${esc(n.t.title)}</span></span>
+        <span class="w-2 h-2 rounded-full bg-brand-600 mt-2 shrink-0"></span></button>`).join('')
+      : '<div class="text-center py-10 text-sm text-ink-500"><i class="fa-regular fa-bell-slash text-2xl text-ink-300 block mb-2"></i>لا إشعارات جديدة</div>'}</div>`;
+}
+
+/* ---------------- RENDER ROUTER ---------------- */
+function render() {
+  renderNav();
+  const v = VIEWS[state.view];
+  $('#pageTitle').textContent = v.label;
+  $('#pageSub').textContent = (state.viewAs === 'mgr' ? 'مؤسسة الأفق' : person(state.viewAs).name) + ' • ' + fmtDay(TODAY());
+  ({ home: renderHome, tasks: renderTasks, team: renderTeam, wins: renderWins })[state.view]();
+  $('#view').insertAdjacentHTML('afterbegin', roleBanner()); bindRole();
+}
+
+/* ---------------- METRICS ---------------- */
+function metrics(list = scoped()) {
+  const today = TODAY(), weekAgo = ymd(addDays(new Date(), -6));
+  const open = list.filter(t => t.status !== 'done');
+  const dueToday = list.filter(t => t.due === today);
+  const doneToday = list.filter(t => t.status === 'done' && t.doneAt && ymd(new Date(t.doneAt)) === today);
+  const overdue = list.filter(isOverdue);
+  const weekDue = list.filter(t => t.due >= weekAgo && t.due <= today);
+  const weekDone = weekDue.filter(t => t.status === 'done');
+  const rate = weekDue.length ? Math.round(weekDone.length / weekDue.length * 100) : 0;
+  return { open, dueToday, doneToday, overdue, rate, weekDue, weekDone };
+}
+function dailyDone(list = scoped(), days = 7) {
+  const out = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = ymd(addDays(new Date(), -i));
+    out.push({ d, n: list.filter(t => t.doneAt && ymd(new Date(t.doneAt)) === d).length });
+  }
+  return out;
+}
+
+/* ---------------- TASK ROW ---------------- */
+function chip(obj, extra = '') { return `<span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md ${obj.cls} ${extra}"><i class="${obj.icon} text-[10px]"></i>${obj.label}</span>`; }
+function dueChip(t) {
+  if (t.status === 'done') return `<span class="text-[11px] text-ink-500"><i class="fa-regular fa-calendar-check ml-1"></i>${relDue(ymd(new Date(t.doneAt || Date.now())))}</span>`;
+  if (isOverdue(t)) return `<span class="inline-flex items-center gap-1 text-[11px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded-md"><i class="fa-solid fa-triangle-exclamation text-[10px]"></i>متأخرة • ${relDue(t.due)}</span>`;
+  return `<span class="text-[11px] ${t.due === TODAY() ? 'font-bold text-brand-700' : 'text-ink-500'}"><i class="fa-regular fa-calendar ml-1"></i>${relDue(t.due)}</span>`;
+}
+function progressOf(t) { const c = t.checklist || []; return c.length ? Math.round(c.filter(x => x.done).length / c.length * 100) : null; }
+function taskRow(t, compact) {
+  const pr = progressOf(t);
+  return `<div class="fade-in group flex items-start gap-3 p-3.5 rounded-xl hover:bg-ink-50 ${t.status === 'done' ? 'opacity-70' : ''}">
+    <input type="checkbox" class="task-check mt-0.5" title="${t.status === 'done' ? 'إلغاء الإنجاز' : 'تم الإنجاز'}" data-toggle="${t.id}" ${t.status === 'done' ? 'checked' : ''} aria-label="تم إنجاز: ${esc(t.title)}">
+    <button data-open="${t.id}" class="flex-1 min-w-0 text-right">
+      <div class="font-semibold text-[15px] leading-6 ${t.status === 'done' ? 'line-through text-ink-500' : ''}">${esc(t.title)}</div>
+      <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
+        ${isNewForMe(t) ? '<span class="inline-flex items-center gap-1 text-[11px] font-bold text-white bg-brand-600 px-2 py-0.5 rounded-md"><i class="fa-solid fa-inbox text-[10px]"></i>جديدة لك</span>' : ''}
+        ${t.status !== 'done' ? chip(PRIORITY[t.priority]) : ''}
+        ${!compact && t.status !== 'todo' ? chip(STATUS[t.status]) : ''}
+        ${dueChip(t)}
+        ${!compact ? `<span class="text-[11px] text-ink-500"><i class="fa-solid fa-tag ml-1 text-[10px]"></i>${esc(t.tag)}</span>` : ''}
+        ${(t.comments || []).length ? `<span class="inline-flex items-center gap-1 text-[11px] ${unreadComments(t) ? 'font-bold text-amber-800' : 'text-ink-500'}"><i class="fa-regular fa-comment text-[10px]"></i>${num(t.comments.length)}${unreadComments(t) ? ' جديد' : ''}</span>` : ''}
+        ${pr !== null && t.status !== 'done' ? `<span class="inline-flex items-center gap-1.5 text-[11px] text-ink-500"><span class="w-12 h-1.5 bg-ink-200 rounded-full overflow-hidden"><span class="block h-full bg-brand-500 rounded-full" style="width:${pr}%"></span></span>${num(pr)}%</span>` : ''}
+      </div>
+    </button>
+    ${state.viewAs === 'mgr' ? avatar(t.assignee) : ''}
+  </div>`;
+}
+const sortTasks = (a, b) => (a.status === 'done') - (b.status === 'done') || isOverdue(b) - isOverdue(a) || a.due.localeCompare(b.due) || PRIORITY[a.priority].rank - PRIORITY[b.priority].rank;
+
+/* ---------------- HOME (Overview first, progressive disclosure) ---------------- */
+function renderHome() {
+  const m = metrics(), daily = dailyDone(), list = scoped();
+  const focus = list.filter(t => t.status !== 'done' && t.due <= TODAY()).sort(sortTasks);
+  const todayAll = list.filter(t => t.due === TODAY() || (t.doneAt && ymd(new Date(t.doneAt)) === TODAY() ) || isOverdue(t));
+  const doneN = m.doneToday.length, totalN = doneN + focus.length;
+  const pct = totalN ? Math.round(doneN / totalN * 100) : 100;
+  const hello = new Date().getHours() < 12 ? 'صباح الخير' : 'مساء الخير';
+  const who = state.viewAs === 'mgr' ? '' : '، ' + person(state.viewAs).name.split(' ')[0];
+  const wins = list.filter(t => t.status === 'done' && t.doneAt).sort((a, b) => b.doneAt - a.doneAt).slice(0, 4);
+  const R = 42, C = 2 * Math.PI * R;
+
+  $('#view').innerHTML = `
+    <!-- 1. One clear summary -->
+    <section class="fade-in relative overflow-hidden rounded-3xl bg-gradient-to-bl from-brand-700 via-brand-600 to-brand-500 text-white p-5 sm:p-7 mb-5 shadow-xl shadow-brand-600/20">
+      <div class="absolute -left-16 -top-16 w-56 h-56 rounded-full bg-white/10"></div>
+      <div class="absolute left-24 -bottom-20 w-40 h-40 rounded-full bg-white/5"></div>
+      <div class="relative flex items-center gap-5">
+        <svg width="104" height="104" viewBox="0 0 104 104" class="shrink-0" role="img" aria-label="نسبة إنجاز اليوم ${pct}%">
+          <circle cx="52" cy="52" r="${R}" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="10"/>
+          <circle cx="52" cy="52" r="${R}" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-dasharray="${(pct / 100 * C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 52 52)" style="transition:stroke-dasharray .6s"/>
+          <text x="52" y="50" text-anchor="middle" font-size="22" font-weight="700" fill="#fff">${num(pct)}%</text>
+          <text x="52" y="68" text-anchor="middle" font-size="10" fill="rgba(255,255,255,.8)">إنجاز اليوم</text>
+        </svg>
+        <div class="min-w-0">
+          <div class="text-sm text-brand-100 mb-1">${hello}${esc(who)} 👋</div>
+          <h2 class="text-xl sm:text-2xl font-bold leading-snug mb-2">${totalN ? `أُنجزت <span class="text-amber-300">${num(doneN)}</span> من ${num(totalN)} مهام اليوم` : 'لا مهام اليوم'}</h2>
+          <p class="text-sm text-brand-100">${focus.length ? `بقيت ${num(focus.length)} مهام${m.overdue.length ? `، منها ${num(m.overdue.length)} متأخرة` : ''}.` : 'كل مهام اليوم منجزة. عمل رائع! 🎉'}</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Three numbers only -->
+    <section class="grid grid-cols-3 gap-3 mb-5">
+      ${kpi('متبقية اليوم', num(focus.length - m.overdue.length), 'fa-regular fa-clock', 'text-brand-700 bg-brand-50', "data-jump='today'")}
+      ${kpi('منجزة اليوم', num(doneN), 'fa-solid fa-circle-check', 'text-emerald-700 bg-emerald-50', "data-view='wins'")}
+      ${kpi('متأخرة', num(m.overdue.length), 'fa-solid fa-triangle-exclamation', m.overdue.length ? 'text-red-700 bg-red-50' : 'text-ink-500 bg-ink-100', "data-jump='overdue'", m.overdue.length > 0)}
+    </section>
+
+    <!-- 3. The main job: today's list -->
+    <section data-tour="focus" class="bg-white border border-ink-200 rounded-2xl mb-5">
+      <div class="flex items-center justify-between gap-3 p-4 sm:p-5 pb-2">
+        <div><h3 class="text-lg font-bold">مهام اليوم</h3>
+          <p class="text-xs text-ink-500 mt-0.5"><i class="fa-regular fa-square-check ml-1"></i>اضغط على المربع عند إنجاز المهمة، وعلى العنوان لرؤية التفاصيل</p></div>
+        <button data-jump="open" class="shrink-0 text-xs font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-2 rounded-lg">كل المهام</button>
+      </div>
+      <div class="px-1 sm:px-2 pb-2 divide-y divide-ink-100">${focus.length ? focus.map(t => taskRow(t, true)).join('') :
+        `<div class="text-center py-12"><div class="text-5xl mb-3">🎉</div><p class="font-bold text-lg">أحسنت! لا مهام متبقية اليوم</p><p class="text-sm text-ink-500 mt-1">أضف مهمة جديدة أو راجع مهام الأيام القادمة.</p></div>`}</div>
+    </section>
+
+    <!-- 4. Secondary: details on demand -->
+    <div class="flex items-center gap-3 mb-3"><h3 class="text-sm font-bold text-ink-700">نظرة على الأسبوع</h3><span class="flex-1 h-px bg-ink-200"></span></div>
+    <div class="grid lg:grid-cols-2 gap-5">
+      <section class="bg-white border border-ink-200 rounded-2xl p-5">
+        <div class="flex items-center justify-between mb-1"><h3 class="font-bold">المهام المنجزة يومياً</h3><span class="text-xs text-ink-500">آخر 7 أيام</span></div>
+        <p class="text-xs text-ink-500 mb-4">نسبة الالتزام بالمواعيد هذا الأسبوع: <b class="text-ink-900">${num(m.rate)}%</b></p>
+        ${barChart(daily)}
+      </section>
+      <section class="bg-white border border-ink-200 rounded-2xl p-5">
+        <div class="flex items-center justify-between mb-4"><h3 class="font-bold">آخر الإنجازات</h3><button data-view="wins" class="text-xs font-bold text-brand-700 hover:underline">عرض السجل</button></div>
+        ${wins.length ? `<ol class="space-y-3.5">${wins.map(w => `
+          <li class="flex items-center gap-3">${avatar(w.assignee, 'w-9 h-9 text-[10px]')}
+            <div class="flex-1 min-w-0"><div class="text-sm font-semibold truncate">${esc(w.title)}</div><div class="text-[11px] text-ink-500">${esc(person(w.assignee).name)} • ${timeAgo(w.doneAt)}</div></div>
+            <span class="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md"><i class="fa-solid fa-check ml-1"></i>منجزة</span></li>`).join('')}</ol>` : '<p class="text-sm text-ink-500">لا إنجازات بعد.</p>'}
+      </section>
+    </div>
+    ${state.viewAs === 'mgr' ? `<section class="bg-white border border-ink-200 rounded-2xl p-5 mt-5">
+      <div class="flex items-center justify-between mb-1"><h3 class="font-bold">توزيع العمل على الفريق</h3><button data-view="team" class="text-xs font-bold text-brand-700 hover:underline">تفاصيل الفريق</button></div>
+      <p class="text-xs text-ink-500 mb-4">عدد المهام المفتوحة لكل موظف — اضغط على أي موظف لرؤية مهامه</p>
+      <div class="space-y-3.5">${workload()}</div>
+    </section>` : ''}`;
+}
+function kpi(label, value, icon, cls, attrs = '', alert = false) {
+  return `<button ${attrs} class="fade-in text-right bg-white border ${alert ? 'border-red-200' : 'border-ink-200'} rounded-2xl p-3.5 sm:p-4 hover:shadow-md hover:-translate-y-0.5 transition">
+    <span class="w-9 h-9 rounded-xl ${cls} inline-flex items-center justify-center mb-2.5"><i class="${icon} text-sm"></i></span>
+    <div class="text-2xl sm:text-3xl font-bold leading-none mb-1 ${alert ? 'text-red-700' : ''}">${value}</div>
+    <div class="text-xs font-semibold text-ink-700 flex items-center gap-1">${label}<i class="fa-solid fa-chevron-left text-[9px] text-ink-400 mr-auto"></i></div>
+  </button>`;
+}
+function barChart(data) {
+  const max = Math.max(4, ...data.map(d => d.n)), W = 320, H = 140, bw = 28, gap = (W - bw * data.length) / (data.length - 1);
+  return `<svg viewBox="0 -18 ${W} ${H + 42}" class="w-full h-auto" role="img" aria-label="رسم بياني لعدد المهام المنجزة يومياً">
+    ${data.map((d, i) => {
+      const h = Math.max(3, d.n / max * H), x = W - bw - i * (bw + gap), y = H - h, today = i === data.length - 1;
+      return `<g><rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="6" fill="${today ? '#4f46e5' : '#c7d2fe'}"><title>${fmtShort(d.d)}: ${d.n} مهام</title></rect>
+        <text x="${x + bw / 2}" y="${y - 6}" text-anchor="middle" font-size="12" font-weight="700" fill="${d.n ? '#0f172a' : '#94a3b8'}">${num(d.n)}</text>
+        <text x="${x + bw / 2}" y="${H + 18}" text-anchor="middle" font-size="11" fill="${today ? '#4338ca' : '#64748b'}" font-weight="${today ? 700 : 400}">${today ? 'اليوم' : parseYmd(d.d).toLocaleDateString('ar-MA', { weekday:'short' })}</text></g>`;
+    }).join('')}
+  </svg>`;
+}
+function timeAgo(ms) {
+  const m = Math.round((Date.now() - ms) / 6e4);
+  if (m < 1) return 'الآن'; if (m < 60) return `منذ ${num(m)} دقيقة`;
+  const h = Math.round(m / 60); if (h < 24) return `منذ ${num(h)} ساعة`;
+  return relDue(ymd(new Date(ms)));
+}
+function workload() {
+  return TEAM.map(p => {
+    const mine = tasks.filter(t => t.assignee === p.id), open = mine.filter(t => t.status !== 'done').length, late = mine.filter(isOverdue).length;
+    const maxOpen = Math.max(1, ...TEAM.map(q => tasks.filter(t => t.assignee === q.id && t.status !== 'done').length));
+    return `<button data-person="${p.id}" class="w-full flex items-center gap-3 text-right group">
+      ${avatar(p.id)}
+      <div class="w-28 sm:w-40 min-w-0"><div class="text-sm font-semibold truncate group-hover:text-brand-700">${p.name}</div><div class="text-[11px] text-ink-500 truncate">${p.role}</div></div>
+      <div class="flex-1 h-2.5 bg-ink-100 rounded-full overflow-hidden"><div class="h-full bg-brand-500 rounded-full" style="width:${open / maxOpen * 100}%"></div></div>
+      <div class="w-24 text-left text-xs"><b>${num(open)}</b> مفتوحة${late ? ` <span class="text-red-700 font-bold whitespace-nowrap"><i class="fa-solid fa-triangle-exclamation text-[10px]"></i> ${num(late)}</span>` : ''}</div>
+    </button>`;
+  }).join('');
+}
+
+/* ---------------- TASKS (Zoom & filter) ---------------- */
+function filtered() {
+  const q = state.q.trim(), today = TODAY(), weekEnd = ymd(addDays(new Date(), 6));
+  return scoped().filter(t =>
+    (!q || (t.title + ' ' + t.tag + ' ' + person(t.assignee).name).includes(q)) &&
+    (state.fAssignee === 'all' || t.assignee === state.fAssignee) &&
+    (state.fStatus === 'all' || (state.fStatus === 'open' ? t.status !== 'done' : t.status === state.fStatus)) &&
+    (state.fPriority === 'all' || t.priority === state.fPriority) &&
+    (state.fDue === 'all' || (state.fDue === 'today' && t.due === today) || (state.fDue === 'week' && t.due >= today && t.due <= weekEnd) || (state.fDue === 'overdue' && isOverdue(t)))
+  ).sort(sortTasks);
+}
+function select(id, value, opts, label) {
+  return `<label class="shrink-0"><span class="sr-only">${label}</span><select id="${id}" class="bg-white border border-ink-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-brand-500">
+    ${opts.map(([v, l]) => `<option value="${v}" ${value === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`;
+}
+function renderTasks() {
+  const list = filtered();
+  const active = ['fAssignee','fPriority','fDue'].filter(k => state[k] !== 'all').length + (state.fStatus !== 'open' ? 1 : 0) + (state.q ? 1 : 0);
+  $('#view').innerHTML = `
+    <div class="flex flex-col gap-3 mb-4">
+      <div class="flex gap-2">
+        <div class="relative flex-1"><i class="fa-solid fa-magnifying-glass absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 text-sm"></i>
+          <input id="q" type="search" value="${esc(state.q)}" placeholder="ابحث بعنوان المهمة أو الموظف أو التصنيف" class="w-full bg-white border border-ink-200 rounded-xl pr-9 pl-3 py-2.5 text-sm focus:outline-none focus:border-brand-500"></div>
+        <div class="flex bg-ink-100 rounded-xl p-1 text-sm" role="tablist" aria-label="طريقة العرض">
+          <button data-mode="list" class="px-3 rounded-lg ${state.mode === 'list' ? 'bg-white shadow-sm text-brand-700' : 'text-ink-500'}" ><i class="fa-solid fa-list ml-1.5"></i><span class="text-xs font-bold">قائمة</span></button>
+          <button data-mode="board" class="px-3 rounded-lg ${state.mode === 'board' ? 'bg-white shadow-sm text-brand-700' : 'text-ink-500'}" ><i class="fa-solid fa-table-columns ml-1.5"></i><span class="text-xs font-bold">لوحة</span></button>
+        </div>
+      </div>
+      <div class="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">
+        ${state.mode === 'list' ? select('fStatus', state.fStatus, [['open','الحالة: غير المنجزة'],['all','الحالة: الكل'],['todo','جديدة'],['doing','قيد التنفيذ'],['done','منجزة']], 'الحالة') : ''}
+        ${select('fDue', state.fDue, [['all','الموعد: الكل'],['today','مستحقة اليوم'],['week','هذا الأسبوع'],['overdue','المتأخرة']], 'الموعد')}
+        ${select('fPriority', state.fPriority, [['all','الأولوية: الكل'],['high','عالية'],['med','متوسطة'],['low','منخفضة']], 'الأولوية')}
+        ${state.viewAs === 'mgr' ? select('fAssignee', state.fAssignee, [['all','الموظف: الكل'], ...TEAM.map(t => [t.id, t.name])], 'الموظف') : ''}
+        ${active ? `<button data-action="clear" class="shrink-0 px-3 py-2 text-xs font-bold text-brand-700"><i class="fa-solid fa-xmark ml-1"></i>مسح الفلاتر</button>` : ''}
+      </div>
+      <div class="text-xs text-ink-500">${num(list.length)} مهمة</div>
+    </div>
+    ${state.mode === 'list' ? listView(list) : boardView(list)}`;
+
+  let tq; $('#q').addEventListener('input', e => { clearTimeout(tq); tq = setTimeout(() => { state.q = e.target.value; const pos = e.target.selectionStart; renderTasks(); const el = $('#q'); el.focus(); el.setSelectionRange(pos, pos); }, 200); });
+  ['fStatus','fDue','fPriority','fAssignee'].forEach(k => { const el = $('#' + k); if (el) el.onchange = e => { state[k] = e.target.value; renderTasks(); }; });
+  if (state.mode === 'board') bindDnD();
+}
+function listView(list) {
+  return list.length ? `<div class="bg-white border border-ink-200 rounded-2xl p-1 divide-y divide-ink-100">${list.map(t => taskRow(t)).join('')}</div>`
+    : `<div class="text-center py-16 bg-white border border-ink-200 rounded-2xl"><i class="fa-solid fa-filter-circle-xmark text-3xl text-ink-300 mb-3"></i><p class="text-sm text-ink-500">لا توجد مهام مطابقة.</p></div>`;
+}
+function boardView(list) {
+  return `<div class="grid md:grid-cols-3 gap-4">${Object.entries(STATUS).map(([k, s]) => {
+    const col = list.filter(t => t.status === k);
+    return `<section data-col="${k}" class="bg-ink-100/70 rounded-2xl p-3 min-h-[160px] transition">
+      <div class="flex items-center gap-2 mb-3 px-1"><span class="w-2.5 h-2.5 rounded-full ${s.dot}"></span><h3 class="font-bold text-sm">${s.label}</h3><span class="text-xs text-ink-500">${num(col.length)}</span></div>
+      <div class="space-y-2">${col.map(t => `
+        <article draggable="true" data-card="${t.id}" class="fade-in bg-white rounded-xl border ${isOverdue(t) ? 'border-red-200' : 'border-ink-200'} p-3 shadow-sm cursor-grab active:cursor-grabbing">
+          <button data-open="${t.id}" class="block w-full text-right font-semibold text-sm mb-2 hover:text-brand-700">${esc(t.title)}</button>
+          <div class="flex flex-wrap items-center gap-1.5 mb-2">${t.status !== 'done' ? chip(PRIORITY[t.priority]) : ''}${dueChip(t)}</div>
+          <div class="flex items-center justify-between">
+            ${avatar(t.assignee, 'w-6 h-6 text-[10px]')}
+            <div class="flex gap-1">${k !== 'todo' ? `<button data-move="${t.id}" data-to="${k === 'done' ? 'doing' : 'todo'}" class="h-7 px-2 rounded-lg hover:bg-ink-100 text-ink-500 text-[11px] font-bold"><i class="fa-solid fa-arrow-right text-[10px] ml-1"></i>رجوع</button>` : ''}
+              ${k !== 'done' ? `<button data-move="${t.id}" data-to="${k === 'todo' ? 'doing' : 'done'}" class="h-7 px-2.5 rounded-lg ${k === 'todo' ? 'bg-sky-50 text-sky-700 hover:bg-sky-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'} text-[11px] font-bold">${k === 'todo' ? 'ابدأ' : 'أنجزت'}<i class="fa-solid fa-arrow-left text-[10px] mr-1"></i></button>` : ''}</div>
+          </div>
+        </article>`).join('') || '<p class="text-xs text-ink-400 text-center py-6">اسحب مهمة إلى هنا</p>'}</div>
+    </section>`; }).join('')}</div>`;
+}
+function bindDnD() {
+  $$('[data-card]').forEach(c => c.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', c.dataset.card); e.dataTransfer.effectAllowed = 'move'; }));
+  $$('[data-col]').forEach(col => {
+    col.addEventListener('dragover', e => { e.preventDefault(); col.classList.add('drop-on'); });
+    col.addEventListener('dragleave', () => col.classList.remove('drop-on'));
+    col.addEventListener('drop', e => { e.preventDefault(); col.classList.remove('drop-on'); setStatus(e.dataTransfer.getData('text/plain'), col.dataset.col); });
+  });
+}
+
+/* ---------------- TEAM ---------------- */
+function renderTeam() {
+  const people = state.viewAs === 'mgr' ? TEAM : TEAM.filter(t => t.id === state.viewAs);
+  const weekAgo = ymd(addDays(new Date(), -6));
+  $('#view').innerHTML = `<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">${people.map(p => {
+    const mine = tasks.filter(t => t.assignee === p.id);
+    const open = mine.filter(t => t.status !== 'done'), late = mine.filter(isOverdue);
+    const wd = mine.filter(t => t.doneAt && ymd(new Date(t.doneAt)) >= weekAgo);
+    const due = mine.filter(t => t.due >= weekAgo && t.due <= TODAY()), rate = due.length ? Math.round(due.filter(t => t.status === 'done').length / due.length * 100) : 0;
+    return `<article class="fade-in bg-white border border-ink-200 rounded-2xl p-5">
+      <div class="flex items-center gap-3 mb-4">${avatar(p.id, 'w-12 h-12 text-sm')}<div><div class="font-bold">${p.name}</div><div class="text-xs text-ink-500">${p.role}</div></div></div>
+      <div class="grid grid-cols-3 gap-2 text-center mb-4">
+        <div class="bg-ink-50 rounded-xl py-2"><div class="font-bold">${num(open.length)}</div><div class="text-[11px] text-ink-500">مفتوحة</div></div>
+        <div class="bg-emerald-50 rounded-xl py-2"><div class="font-bold text-emerald-700">${num(wd.length)}</div><div class="text-[11px] text-ink-500">أنجز (7 أيام)</div></div>
+        <div class="${late.length ? 'bg-red-50' : 'bg-ink-50'} rounded-xl py-2"><div class="font-bold ${late.length ? 'text-red-700' : ''}">${num(late.length)}</div><div class="text-[11px] text-ink-500">متأخرة</div></div>
+      </div>
+      <div class="flex items-center justify-between text-xs mb-1.5"><span class="text-ink-500">الالتزام بالمواعيد هذا الأسبوع</span><b>${num(rate)}%</b></div>
+      <div class="h-2 bg-ink-100 rounded-full overflow-hidden mb-4"><div class="h-full rounded-full ${rate >= 70 ? 'bg-emerald-500' : rate >= 40 ? 'bg-amber-500' : 'bg-red-500'}" style="width:${rate}%"></div></div>
+      <div class="text-xs font-bold text-ink-700 mb-2">آخر ما أنجزه</div>
+      <ul class="space-y-1.5 mb-4">${mine.filter(t => t.status === 'done' && t.doneAt).sort((a, b) => b.doneAt - a.doneAt).slice(0, 3).map(t => `
+        <li class="flex items-center gap-2 text-xs"><i class="fa-solid fa-circle-check text-emerald-500"></i><span class="flex-1 truncate">${esc(t.title)}</span><span class="text-ink-500 shrink-0">${timeAgo(t.doneAt)}</span></li>`).join('') || '<li class="text-xs text-ink-500">لم ينجز مهام بعد.</li>'}</ul>
+      ${late.length ? `<div class="text-xs font-bold text-red-700 mb-2"><i class="fa-solid fa-triangle-exclamation ml-1"></i>متأخر في</div><ul class="space-y-1.5 mb-4">${late.slice(0, 2).map(t => `<li class="text-xs truncate">• ${esc(t.title)}</li>`).join('')}</ul>` : ''}
+      <div class="grid grid-cols-2 gap-2">
+        <button data-person="${p.id}" class="py-2.5 rounded-xl bg-ink-100 hover:bg-brand-50 hover:text-brand-700 text-xs font-bold">عرض مهامه</button>
+        <button data-assign="${p.id}" class="py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold"><i class="fa-solid fa-plus ml-1"></i>أضف له مهمة</button>
+      </div>
+    </article>`; }).join('')}</div>`;
+}
+
+/* ---------------- WINS (Progress principle) ---------------- */
+function renderWins() {
+  const list = scoped().filter(t => t.status === 'done' && t.doneAt).sort((a, b) => b.doneAt - a.doneAt);
+  const byDay = {}; list.forEach(t => { const d = ymd(new Date(t.doneAt)); (byDay[d] = byDay[d] || []).push(t); });
+  let streak = 0; for (let i = 0; i < 60; i++) { const d = ymd(addDays(new Date(), -i)); if (byDay[d]) streak++; else if (i > 0) break; }
+  const month = list.filter(t => new Date(t.doneAt).getMonth() === new Date().getMonth()).length;
+  $('#view').innerHTML = `
+    <section class="grid grid-cols-3 gap-3 mb-5">
+      <div class="bg-white border border-ink-200 rounded-2xl p-4 text-center"><div class="text-2xl mb-1">🔥</div><div class="text-xl font-bold">${num(streak)}</div><div class="text-[11px] text-ink-500">أيام متتالية من الإنجاز</div></div>
+      <div class="bg-white border border-ink-200 rounded-2xl p-4 text-center"><div class="text-2xl mb-1">🏆</div><div class="text-xl font-bold">${num(month)}</div><div class="text-[11px] text-ink-500">إنجاز هذا الشهر</div></div>
+      <div class="bg-white border border-ink-200 rounded-2xl p-4 text-center"><div class="text-2xl mb-1">✅</div><div class="text-xl font-bold">${num(list.length)}</div><div class="text-[11px] text-ink-500">إجمالي المنجز</div></div>
+    </section>
+    <section class="bg-white border border-ink-200 rounded-2xl p-5">
+      <h3 class="font-bold mb-1">سجل الإنجازات</h3><p class="text-xs text-ink-500 mb-5">كل تقدم صغير يُحتسب — رؤية الإنجاز اليومي هي أقوى محفّز للفريق.</p>
+      ${Object.keys(byDay).length ? Object.entries(byDay).map(([d, arr]) => `
+        <div class="mb-5 last:mb-0">
+          <div class="flex items-center gap-2 mb-2"><span class="text-xs font-bold ${d === TODAY() ? 'text-brand-700' : 'text-ink-700'}">${d === TODAY() ? 'اليوم' : fmtDay(d)}</span><span class="text-[11px] text-ink-500">• ${num(arr.length)} إنجاز</span><span class="flex-1 h-px bg-ink-200"></span></div>
+          <ol class="border-r-2 border-emerald-200 pr-4 space-y-3">${arr.map(t => `
+            <li class="relative"><span class="absolute -right-[23px] top-1 w-3 h-3 rounded-full bg-emerald-500 ring-4 ring-white"></span>
+              <button data-open="${t.id}" class="text-right w-full flex items-center gap-3 hover:bg-ink-50 rounded-lg p-1 -m-1">
+                <div class="flex-1 min-w-0"><div class="text-sm font-semibold">${esc(t.title)}</div>
+                <div class="text-[11px] text-ink-500">${esc(person(t.assignee).name)} • ${new Date(t.doneAt).toLocaleTimeString('ar-MA', { hour:'2-digit', minute:'2-digit' })} • ${esc(t.tag)}</div></div>
+                ${avatar(t.assignee, 'w-7 h-7 text-[10px]')}</button></li>`).join('')}</ol>
+        </div>`).join('') : '<p class="text-sm text-ink-500 text-center py-8">لا إنجازات بعد. أنجز أول مهمة!</p>'}
+    </section>`;
+}
+
+/* ---------------- ACTIONS ---------------- */
+function setStatus(id, status) {
+  const t = tasks.find(x => x.id === id); if (!t || t.status === status) return;
+  const was = t.status; t.status = status; t.doneAt = status === 'done' ? Date.now() : null;
+  if (status === 'done' && !isMgr()) t.seen = (t.seen || []).filter(x => x !== 'mgr');
+  if (status === 'done') (t.checklist || []).forEach(c => c.done = true);
+  save(); render(); if (drawerOpen()) openTask(id);
+  if (status === 'done') { const n = metrics().doneToday.length; toast(`إنجاز جديد! ${num(n)} مهام أُنجزت اليوم 🎉`); }
+  else if (was === 'done') toast('أُعيدت المهمة إلى قائمة العمل', 'fa-rotate-left', 'text-brand-200');
+  else toast(`نُقلت إلى: ${STATUS[status].label}`, 'fa-arrow-left', 'text-brand-200');
+}
+
+/* ---------------- DRAWER: details on demand / create / edit ---------------- */
+const drawerOpen = () => $('#drawer').dataset.open === '1';
+function showDrawer() { const d = $('#drawer'); d.dataset.open = '1'; d.classList.remove('translate-y-full', 'sm:-translate-x-full'); d.classList.add('sm:translate-x-0');
+  const o = $('#overlay'); o.style.opacity = 1; o.style.pointerEvents = 'auto'; document.body.style.overflow = 'hidden'; }
+function hideDrawer() { const d = $('#drawer'); d.dataset.open = '0'; d.classList.add('translate-y-full', 'sm:-translate-x-full'); d.classList.remove('sm:translate-x-0');
+  const o = $('#overlay'); o.style.opacity = 0; o.style.pointerEvents = 'none'; document.body.style.overflow = ''; }
+
+function openTask(id) {
+  const t = tasks.find(x => x.id === id); if (!t) return;
+  markSeen(t); renderNav();
+  const pr = progressOf(t), p = person(t.assignee);
+  $('#drawerTitle').textContent = 'تفاصيل المهمة';
+  $('#drawerBody').innerHTML = `
+    <div class="fade-in">
+      <div class="flex flex-wrap gap-1.5 mb-3">${chip(STATUS[t.status])}${chip(PRIORITY[t.priority])}${isOverdue(t) ? '<span class="inline-flex items-center gap-1 text-[11px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded-md"><i class="fa-solid fa-triangle-exclamation text-[10px]"></i>متأخرة</span>' : ''}</div>
+      <h2 class="text-xl font-bold mb-2 ${t.status === 'done' ? 'line-through text-ink-500' : ''}">${esc(t.title)}</h2>
+      ${t.desc ? `<p class="text-sm text-ink-700 leading-7 mb-4 whitespace-pre-line">${esc(t.desc)}</p>` : ''}
+      <dl class="grid grid-cols-2 gap-3 mb-5 text-sm">
+        <div class="bg-ink-50 rounded-xl p-3"><dt class="text-[11px] text-ink-500 mb-1">المسؤول</dt><dd class="flex items-center gap-2 font-semibold">${avatar(t.assignee, 'w-6 h-6 text-[10px]')}<span class="truncate">${esc(p.name)}</span></dd></div>
+        <div class="bg-ink-50 rounded-xl p-3"><dt class="text-[11px] text-ink-500 mb-1">تاريخ الاستحقاق</dt><dd class="font-semibold">${fmtShort(t.due)} <span class="text-ink-500 font-normal">(${relDue(t.due)})</span></dd></div>
+        <div class="bg-ink-50 rounded-xl p-3"><dt class="text-[11px] text-ink-500 mb-1">أسندها</dt><dd class="flex items-center gap-2 font-semibold">${t.createdBy === 'mgr' ? '<i class="fa-solid fa-user-tie text-brand-600"></i>' : ''}<span class="truncate">${t.createdBy === t.assignee ? 'أضافها لنفسه' : esc(person(t.createdBy || 'mgr').name)}</span></dd></div>
+        <div class="bg-ink-50 rounded-xl p-3"><dt class="text-[11px] text-ink-500 mb-1">${t.doneAt ? 'أُنجزت' : 'أُنشئت'}</dt><dd class="font-semibold">${timeAgo(t.doneAt || t.created)}</dd></div>
+      </dl>
+      <div class="text-sm font-bold mb-2">الحالة</div>
+      <div class="grid grid-cols-3 gap-2 mb-5">${Object.entries(STATUS).map(([k, s]) => `
+        <button data-set="${k}" data-id="${t.id}" class="py-2.5 rounded-xl border-2 text-xs font-bold transition ${t.status === k ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 hover:border-ink-300'}"><i class="${s.icon} ml-1"></i>${s.label}</button>`).join('')}</div>
+      <div class="flex items-center justify-between mb-2"><div class="text-sm font-bold">الخطوات</div>${pr !== null ? `<span class="text-xs text-ink-500">${num(t.checklist.filter(c => c.done).length)} من ${num(t.checklist.length)}</span>` : ''}</div>
+      ${pr !== null ? `<div class="h-2 bg-ink-100 rounded-full overflow-hidden mb-3"><div class="h-full bg-brand-500 rounded-full transition-all" style="width:${pr}%"></div></div>` : ''}
+      <ul class="space-y-1 mb-2">${(t.checklist || []).map((c, i) => `
+        <li class="flex items-center gap-3 p-2 rounded-lg hover:bg-ink-50">
+          <input type="checkbox" class="task-check" data-step="${i}" data-id="${t.id}" ${c.done ? 'checked' : ''} aria-label="${esc(c.t)}">
+          <span class="flex-1 text-sm ${c.done ? 'line-through text-ink-500' : ''}">${esc(c.t)}</span>
+          <button data-delstep="${i}" data-id="${t.id}" class="text-ink-400 hover:text-red-600 w-7 h-7" aria-label="حذف الخطوة"><i class="fa-solid fa-xmark text-xs"></i></button></li>`).join('')}</ul>
+      <form id="stepForm" class="flex gap-2 mb-6"><input id="stepInput" placeholder="أضف خطوة..." maxlength="80" class="flex-1 bg-ink-100 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"><button class="px-3 rounded-xl bg-ink-900 text-white text-sm" aria-label="إضافة"><i class="fa-solid fa-plus"></i></button></form>
+      <div class="text-sm font-bold mb-3"><i class="fa-regular fa-comments ml-1.5 text-ink-500"></i>المحادثة حول المهمة <span class="text-xs font-normal text-ink-500">(${num((t.comments || []).length)})</span></div>
+      <ol class="space-y-3 mb-3">${(t.comments || []).map(c => { const mine = c.by === me(); return `
+        <li class="flex gap-2.5 ${mine ? 'flex-row-reverse' : ''}">
+          ${c.by === 'mgr' ? '<span class="w-8 h-8 rounded-full bg-brand-600 text-white flex items-center justify-center shrink-0 text-xs"><i class="fa-solid fa-user-tie"></i></span>' : avatar(c.by)}
+          <div class="max-w-[80%] ${mine ? 'bg-brand-600 text-white' : 'bg-ink-100'} rounded-2xl ${mine ? 'rounded-tl-md' : 'rounded-tr-md'} px-3.5 py-2.5">
+            <div class="text-[11px] ${mine ? 'text-brand-100' : 'text-ink-500'} mb-0.5">${mine ? 'أنت' : esc(person(c.by).name)} • ${timeAgo(c.at)}</div>
+            <div class="text-sm leading-6 whitespace-pre-line">${esc(c.text)}</div></div></li>`; }).join('') ||
+        '<li class="text-xs text-ink-500 bg-ink-50 rounded-xl p-3 text-center">لا تعليقات بعد. اكتب ملاحظة أو سؤالاً، وسيصل إشعار للطرف الآخر.</li>'}</ol>
+      <form id="commentForm" class="flex gap-2 items-end">
+        <textarea id="commentInput" rows="1" maxlength="400" placeholder="${isMgr() ? 'اكتب ملاحظة للموظف...' : 'اكتب رداً للمدير...'}" class="flex-1 bg-ink-100 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"></textarea>
+        <button class="h-10 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold shrink-0"><i class="fa-solid fa-paper-plane ml-1"></i>إرسال</button></form>
+    </div>`;
+  $('#drawerFoot').innerHTML = `<div class="flex gap-2">
+    ${t.status !== 'done' ? `<button data-set="done" data-id="${t.id}" class="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm"><i class="fa-solid fa-check ml-1.5"></i>تم الإنجاز</button>` : ''}
+    ${can.edit(t) ? `<button data-edit="${t.id}" class="${t.status === 'done' ? 'flex-1' : ''} px-4 py-3 rounded-xl bg-ink-100 hover:bg-ink-200 font-bold text-sm"><i class="fa-solid fa-pen ml-1.5"></i>تعديل</button>` : ''}
+    ${can.del(t) ? `<button data-del="${t.id}" class="px-4 py-3 rounded-xl bg-ink-100 hover:bg-red-50 hover:text-red-700 text-sm" aria-label="حذف"><i class="fa-regular fa-trash-can"></i></button>` : ''}</div>
+    ${!can.edit(t) ? '<p class="text-[11px] text-ink-500 text-center mt-2"><i class="fa-solid fa-lock ml-1"></i>المدير وحده يعدّل أو يحذف المهام التي أسندها</p>' : ''}`;
+  $('#commentForm').onsubmit = e => { e.preventDefault(); const v = $('#commentInput').value.trim(); if (!v) return;
+    t.comments = t.comments || []; t.comments.push({ by: me(), text: v, at: Date.now(), readBy: [me()] }); save(); openTask(id); render();
+    toast(`أُرسل التعليق إلى ${isMgr() ? person(t.assignee).name : 'المدير'}`, 'fa-paper-plane', 'text-brand-200');
+    setTimeout(() => { const b = $('#drawerBody'); b.scrollTop = b.scrollHeight; }, 50); };
+  $('#commentInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#commentForm').requestSubmit(); } });
+  $('#stepForm').onsubmit = e => { e.preventDefault(); const v = $('#stepInput').value.trim(); if (!v) return; t.checklist = t.checklist || []; t.checklist.push({ t: v, done: false }); save(); openTask(id); render(); setTimeout(() => $('#stepInput').focus(), 0); };
+  showDrawer();
+}
+
+function openForm(id, forWho) {
+  const t = id ? tasks.find(x => x.id === id) : { title:'', desc:'', assignee: forWho || (isMgr() ? TEAM[0].id : me()), priority:'med', tag: TAGS[0], due: TODAY() };
+  $('#drawerTitle').textContent = id ? 'تعديل المهمة' : 'مهمة جديدة';
+  $('#drawerBody').innerHTML = `
+    <form id="taskForm" class="space-y-4 fade-in" novalidate>
+      <div><label for="fTitle" class="block text-sm font-bold mb-1.5">عنوان المهمة</label>
+        <input id="fTitle" value="${esc(t.title)}" maxlength="90" placeholder="مثال: إعداد تقرير المبيعات" class="w-full bg-ink-100 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-500">
+        <p id="titleErr" class="hidden text-xs text-red-600 mt-1"><i class="fa-solid fa-circle-exclamation ml-1"></i>اكتب عنواناً من 3 أحرف على الأقل</p></div>
+      <div><label for="fDesc" class="block text-sm font-bold mb-1.5">الوصف <span class="font-normal text-ink-500">(اختياري)</span></label>
+        <textarea id="fDesc" rows="3" maxlength="400" class="w-full bg-ink-100 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none" placeholder="تفاصيل تساعد المسؤول على التنفيذ">${esc(t.desc)}</textarea></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label for="fAssign" class="block text-sm font-bold mb-1.5">المسؤول</label>
+          <select id="fAssign" ${!can.assign() ? 'disabled' : ''} class="w-full bg-ink-100 rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">${TEAM.map(p => `<option value="${p.id}" ${t.assignee === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}</select></div>
+        <div><label for="fDueDate" class="block text-sm font-bold mb-1.5">تاريخ الاستحقاق</label>
+          <input id="fDueDate" type="date" value="${t.due}" class="w-full bg-ink-100 rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"></div>
+      </div>
+      <div><div class="text-sm font-bold mb-1.5">الأولوية</div>
+        <div class="grid grid-cols-3 gap-2">${Object.entries(PRIORITY).map(([k, p]) => `
+          <label class="cursor-pointer"><input type="radio" name="fPri" value="${k}" class="peer sr-only" ${t.priority === k ? 'checked' : ''}>
+            <span class="block text-center py-2.5 rounded-xl border-2 border-ink-200 peer-checked:border-brand-500 peer-checked:bg-brand-50 text-xs font-bold peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500"><i class="${p.icon} ml-1"></i>${p.label}</span></label>`).join('')}</div></div>
+      <div><label for="fTag" class="block text-sm font-bold mb-1.5">التصنيف</label>
+        <select id="fTag" class="w-full bg-ink-100 rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">${TAGS.map(g => `<option ${t.tag === g ? 'selected' : ''}>${g}</option>`).join('')}</select></div>
+    </form>`;
+  $('#drawerFoot').innerHTML = `<button id="saveTask" class="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold">${id ? 'حفظ التعديلات' : 'إضافة المهمة'}</button>`;
+  const submit = () => {
+    const title = $('#fTitle').value.trim();
+    if (title.length < 3) { $('#titleErr').classList.remove('hidden'); $('#fTitle').focus(); return; }
+    const data = { title, desc: $('#fDesc').value.trim(), assignee: $('#fAssign').value, due: $('#fDueDate').value || TODAY(),
+      priority: (document.querySelector('input[name=fPri]:checked') || {}).value || 'med', tag: $('#fTag').value };
+    if (id) { Object.assign(tasks.find(x => x.id === id), data); save(); render(); openTask(id); toast('حُفظت التعديلات'); }
+    else { const nt = Object.assign({ id: 'n' + Date.now(), status: 'todo', checklist: [], created: Date.now(), doneAt: null, createdBy: me(), seen: [me()], comments: [] }, data);
+      tasks.push(nt); save(); render(); hideDrawer();
+      toast(nt.assignee === me() ? 'أُضيفت المهمة إلى قائمتك' : `أُرسلت المهمة إلى ${person(nt.assignee).name} — ستظهر له عند دخوله`, 'fa-paper-plane', 'text-brand-200'); }
+  };
+  $('#saveTask').onclick = submit;
+  $('#taskForm').onsubmit = e => { e.preventDefault(); submit(); };
+  $('#fTitle').addEventListener('input', () => { if ($('#fTitle').value.trim().length >= 3) $('#titleErr').classList.add('hidden'); });
+  showDrawer(); setTimeout(() => $('#fTitle').focus(), 300);
+}
+
+function confirmDelete(id) {
+  const t = tasks.find(x => x.id === id);
+  $('#confirmTitle').textContent = 'حذف المهمة؟'; $('#confirmText').textContent = `سيتم حذف "${t.title}" نهائياً.`;
+  $('#confirmBox').classList.replace('hidden', 'flex');
+  $('#confirmYes').onclick = () => { tasks = tasks.filter(x => x.id !== id); save(); $('#confirmBox').classList.replace('flex', 'hidden'); hideDrawer(); render(); toast('حُذفت المهمة', 'fa-trash-can', 'text-red-300'); };
+}
+
+function exportCsv() {
+  const head = ['المهمة','المسؤول','الحالة','الأولوية','التصنيف','تاريخ الاستحقاق','تاريخ الإنجاز','متأخرة'];
+  const rows = scoped().map(t => [t.title, person(t.assignee).name, STATUS[t.status].label, PRIORITY[t.priority].label, t.tag, t.due, t.doneAt ? ymd(new Date(t.doneAt)) : '', isOverdue(t) ? 'نعم' : '']);
+  const csv = '﻿' + [head, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type:'text/csv;charset=utf-8' })); a.download = `مهام-${TODAY()}.csv`; a.click();
+  toast('صُدّرت المهام إلى ملف Excel', 'fa-file-arrow-down', 'text-brand-200');
+}
+
+/* ---------------- EVENTS ---------------- */
+document.addEventListener('click', e => {
+  if (!e.target.closest('#notifPanel') && !e.target.closest('#bellBtn')) $('#notifPanel').classList.add('hidden');
+  const lg = e.target.closest('[data-login]'); if (lg) return login(lg.dataset.login);
+  const asg = e.target.closest('[data-assign]'); if (asg) return openForm(null, asg.dataset.assign);
+  const t = e.target.closest('[data-view],[data-mode],[data-open],[data-action],[data-jump],[data-person],[data-move],[data-set],[data-edit],[data-del],[data-delstep]');
+  if (!t) return;
+  const d = t.dataset;
+  if (d.view) { state.view = d.view; saveUi(); render(); window.scrollTo(0, 0); }
+  else if (d.mode) { state.mode = d.mode; saveUi(); renderTasks(); }
+  else if (d.open) { $('#notifPanel').classList.add('hidden'); openTask(d.open); }
+  else if (d.jump) { Object.assign(state, { view:'tasks', mode:'list', q:'', fAssignee:'all', fPriority:'all', fStatus:'open', fDue: d.jump === 'open' ? 'all' : d.jump }); saveUi(); render(); window.scrollTo(0, 0); }
+  else if (d.person) { Object.assign(state, { view:'tasks', mode:'list', q:'', fAssignee: d.person, fPriority:'all', fStatus:'open', fDue:'all' }); saveUi(); render(); window.scrollTo(0, 0); }
+  else if (d.move) setStatus(d.move, d.to);
+  else if (d.set) setStatus(d.id, d.set);
+  else if (d.edit) openForm(d.edit);
+  else if (d.del) confirmDelete(d.del);
+  else if (d.delstep !== undefined) { const tk = tasks.find(x => x.id === d.id); tk.checklist.splice(+d.delstep, 1); save(); openTask(d.id); render(); }
+  else if (d.action === 'tour') startTour();
+  else if (d.action === 'switch') showLogin();
+  else if (d.action === 'notifs') { renderNotifs(); $('#notifPanel').classList.toggle('hidden'); }
+  else if (d.action === 'readall') { notifications().forEach(n => markSeen(n.t)); renderNotifs(); render(); toast('عُلّمت كل الإشعارات كمقروءة'); }
+  else if (d.action === 'new') openForm();
+  else if (d.action === 'close') hideDrawer();
+  else if (d.action === 'export') exportCsv();
+  else if (d.action === 'clear') { Object.assign(state, { q:'', fAssignee:'all', fPriority:'all', fStatus:'open', fDue:'all' }); renderTasks(); }
+  else if (d.action === 'cancel-confirm') $('#confirmBox').classList.replace('flex', 'hidden');
+  else if (d.action === 'reset') { tasks = seed(); save(); render(); toast('أُعيدت البيانات التجريبية', 'fa-rotate', 'text-brand-200'); showLogin(); }
+});
+document.addEventListener('change', e => {
+  const el = e.target;
+  if (el.dataset.toggle) setStatus(el.dataset.toggle, el.checked ? 'done' : 'todo');
+  else if (el.dataset.step !== undefined) {
+    const t = tasks.find(x => x.id === el.dataset.id); t.checklist[+el.dataset.step].done = el.checked;
+    if (el.checked && t.status === 'todo') t.status = 'doing';
+    save(); render();
+    if (t.checklist.every(c => c.done) && t.status !== 'done') { toast('اكتملت كل الخطوات — هل تُعلّم المهمة كمنجزة؟', 'fa-list-check', 'text-brand-200'); }
+    openTask(t.id);
+  }
+});
+$('#overlay').onclick = hideDrawer;
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && tourStep >= 0) { endTour(); return; }
+  if (e.key === 'Escape') { if ($('#confirmBox').classList.contains('flex')) $('#confirmBox').classList.replace('flex', 'hidden'); else hideDrawer(); }
+  if (e.key === 'n' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) && !drawerOpen()) { e.preventDefault(); openForm(); }
+});
+
+
+/* ---------------- ONBOARDING TOUR (short, skippable, contextual) ---------------- */
+const TOUR = [
+  { sel:'[data-tour="focus"]', icon:'fa-list-check', title:'هذه مهام اليوم', text:'كل ما يجب إنجازه اليوم، والمتأخر يظهر أولاً بعلامة حمراء.' },
+  { sel:'[data-tour="focus"] .task-check', icon:'fa-square-check', title:'اضغط عند الإنجاز', text:'اضغط على المربع بجانب المهمة عندما تنتهي منها، فتنتقل إلى سجل الإنجازات.' },
+  { sel:() => window.innerWidth < 640 ? '[data-tour="new-m"]' : '[data-tour="new"]', icon:'fa-plus', title:'أضف مهمة جديدة', text:'حدد المسؤول وتاريخ الاستحقاق والأولوية في خطوة واحدة.' },
+  { sel:'[data-tour="role"]', icon:'fa-right-left', title:'جرّب كمدير وكموظف', text:'اضغط "تبديل الحساب" وادخل كموظف: سترى مهامه فقط، والمهام التي أرسلها له المدير تظهر بعلامة "جديدة لك" مع إشعار.' },
+  { sel:'#bellBtn', icon:'fa-bell', title:'الإشعارات', text:'هنا يرى الموظف المهام الجديدة والتعليقات، ويرى المدير من أنجز مهامه.' },
+];
+let tourStep = -1;
+function startTour() { if (state.view !== 'home') { state.view = 'home'; saveUi(); render(); } tourStep = 0; showTourStep(); }
+function endTour() {
+  tourStep = -1; $$('.tour-target').forEach(e => e.classList.remove('tour-target')); $('header').style.zIndex = '';
+  $('#tourBg').classList.add('hidden'); $('#tourCard').classList.add('hidden'); store.set('injaz_tour', true);
+}
+function showTourStep() {
+  $$('.tour-target').forEach(e => e.classList.remove('tour-target'));
+  const st = TOUR[tourStep], sel = typeof st.sel === 'function' ? st.sel() : st.sel, el = document.querySelector(sel);
+  $('header').style.zIndex = '';
+  if (el) {
+    if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
+    el.classList.add('tour-target'); el.scrollIntoView({ behavior:'smooth', block:'center' });
+    if (el.closest('header')) $('header').style.zIndex = 56;
+  }
+  $('#tourBg').classList.remove('hidden');
+  const last = tourStep === TOUR.length - 1;
+  $('#tourCard').innerHTML = `
+    <div class="flex items-center gap-3 mb-2"><span class="w-10 h-10 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center"><i class="fa-solid ${st.icon}"></i></span>
+      <div class="flex-1"><div class="text-[11px] text-ink-500">الخطوة ${num(tourStep + 1)} من ${num(TOUR.length)}</div><div class="font-bold">${st.title}</div></div>
+      <button data-tour-act="skip" class="text-xs text-ink-500 hover:text-ink-900">تخطي</button></div>
+    <p class="text-sm text-ink-700 leading-6 mb-4">${st.text}</p>
+    <div class="flex items-center gap-3">
+      <div class="flex gap-1.5 flex-1">${TOUR.map((_, i) => `<span class="h-1.5 rounded-full ${i === tourStep ? 'w-6 bg-brand-600' : 'w-1.5 bg-ink-200'}"></span>`).join('')}</div>
+      ${tourStep ? '<button data-tour-act="prev" class="px-3 py-2 rounded-lg text-sm font-bold text-ink-700 hover:bg-ink-100">السابق</button>' : ''}
+      <button data-tour-act="next" class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold">${last ? 'ابدأ العمل' : 'التالي'}</button>
+    </div>`;
+  $('#tourCard').classList.remove('hidden');
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-tour-act]'); if (!b) return;
+  const a = b.dataset.tourAct;
+  if (a === 'skip') endTour(); else if (a === 'prev') { tourStep--; showTourStep(); }
+  else if (tourStep >= TOUR.length - 1) endTour(); else { tourStep++; showTourStep(); }
+});
+$('#tourBg').onclick = endTour;
+
+/* ---------------- INIT ---------------- */
+render();
+if (!store.get('injaz_logged', false)) showLogin();
+else if (!store.get('injaz_tour', false)) setTimeout(startTour, 700);
+</script>
+</body>
+</html>
